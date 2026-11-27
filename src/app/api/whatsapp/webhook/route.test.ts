@@ -36,6 +36,8 @@ const h = vi.hoisted(() => ({
     contactInserts: [] as Record<string, unknown>[],
     /** Patches applied to an existing `contacts` row. */
     contactUpdates: [] as Record<string, unknown>[],
+    blockedTagRows: [] as { tags: { name: string } | { name: string }[] | null }[],
+    blockedTagLookupError: null as { message: string } | null,
     /** Patches applied to `messages` by a status webhook (#535). */
     messageUpdates: [] as Record<string, unknown>[],
     /** Row the status webhook's broadcast_recipients lookup resolves. */
@@ -183,6 +185,18 @@ vi.mock('@supabase/supabase-js', () => ({
               }
             },
           }
+        case 'contact_tags':
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () =>
+                  Promise.resolve({
+                    data: h.state.blockedTagRows,
+                    error: h.state.blockedTagLookupError,
+                  }),
+              }),
+            }),
+          }
         case 'messages':
           return {
             // Two different chains land here, told apart by the count
@@ -306,6 +320,7 @@ import { POST } from './route'
 import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
 import { findExistingContact } from '@/lib/contacts/dedupe'
 import { handleTemplateWebhookChange } from '@/lib/whatsapp/template-webhook'
+import { BLOCKED_TAG_NAME } from '@/lib/contacts/blocked'
 
 const mockGetMediaUrl = vi.mocked(getMediaUrl)
 const mockDownloadMedia = vi.mocked(downloadMedia)
@@ -399,6 +414,8 @@ beforeEach(() => {
   h.state.contactByWaUserId = null
   h.state.contactInserts = []
   h.state.contactUpdates = []
+  h.state.blockedTagRows = []
+  h.state.blockedTagLookupError = null
   h.state.messageUpdates = []
   h.state.broadcastRecipient = null
   h.state.recipientUpdates = []
@@ -463,6 +480,54 @@ describe('inbound webhook: idempotent insert (#367)', () => {
     expect(h.runAutomationsForTrigger).not.toHaveBeenCalled()
     expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled()
     expect(h.dispatchWebhookEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('inbound webhook: blocked contacts', () => {
+  it('drops a message before any conversation, unread, or fan-out side effect', async () => {
+    h.state.blockedTagRows = [{ tags: { name: BLOCKED_TAG_NAME } }]
+
+    await runWebhook()
+
+    expect(h.state.upsertCalls).toHaveLength(0)
+    expect(h.state.rpcCalls).toHaveLength(0)
+    expect(h.dispatchInboundToFlows).not.toHaveBeenCalled()
+    expect(h.runAutomationsForTrigger).not.toHaveBeenCalled()
+    expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled()
+    expect(h.dispatchWebhookEvent).not.toHaveBeenCalled()
+  })
+
+  it('also drops reactions from a blocked contact', async () => {
+    h.state.blockedTagRows = [{ tags: [{ name: 'VIP' }, { name: 'blocked' }] }]
+
+    await runWebhook({
+      id: 'wamid.REACTION1',
+      from: '15551230000',
+      timestamp: '1700000000',
+      type: 'reaction',
+      reaction: { emoji: '👍', message_id: 'wamid.PARENT1' },
+    })
+
+    expect(h.state.upsertCalls).toHaveLength(0)
+    expect(h.dispatchWebhookEvent).not.toHaveBeenCalled()
+  })
+
+  it('keeps processing contacts with only unrelated tags', async () => {
+    h.state.blockedTagRows = [{ tags: { name: 'VIP' } }]
+
+    await runWebhook()
+
+    expect(h.state.upsertCalls).toHaveLength(1)
+    expect(h.state.rpcCalls).toHaveLength(1)
+    expect(h.dispatchWebhookEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not lose a message when the blocked-tag lookup fails', async () => {
+    h.state.blockedTagLookupError = { message: 'db down' }
+
+    await runWebhook()
+
+    expect(h.state.upsertCalls).toHaveLength(1)
   })
 })
 

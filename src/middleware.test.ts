@@ -149,4 +149,24 @@ describe("middleware — resilience", () => {
     expect(res!.status).toBe(307);
     expect(res!.headers.get("location")).toContain("/login");
   });
+
+  it("does not create a client when the URL or key is missing", async () => {
+    const consoleWarn = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    let res: Awaited<ReturnType<typeof middleware>>;
+    try {
+      res = await middleware(authRequest("/dashboard"));
+      expect(getUserCalls).toBe(0);
+      expect(consoleWarn).toHaveBeenCalled();
+    } finally {
+      consoleWarn.mockRestore();
+    }
+
+    expect(res!.status).toBe(307);
+    expect(res!.headers.get("location")).toContain("/login");
+  });
 });

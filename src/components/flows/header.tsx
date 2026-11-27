@@ -60,7 +60,7 @@ export function EditorHeader() {
   } = useFlowEditor();
 
   return (
-    <div className="flex flex-col gap-1.5 px-6 pt-5">
+    <div className="flex flex-col gap-1.5 px-4 pt-4 sm:px-6 sm:pt-5">
       <div className="flex flex-wrap items-center gap-3">
         {/* ---- left: back · icon · name · status · edited ---- */}
         <button

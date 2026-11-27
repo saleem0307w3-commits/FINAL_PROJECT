@@ -13,6 +13,7 @@ import {
   type WaIdentity,
 } from '@/lib/whatsapp/wa-identity'
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe'
+import { isContactBlockedInDb } from '@/lib/contacts/blocked'
 import { reopenClosedConversation } from '@/lib/conversations/reopen'
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
@@ -890,6 +891,11 @@ async function processMessage(
   )
   if (!contactOutcome) return
   const contactRecord = contactOutcome.contact
+
+  if (await isContactBlockedInDb(supabaseAdmin(), accountId, contactRecord.id)) {
+    console.info('[webhook] inbound from blocked contact ignored:', message.id)
+    return
+  }
 
   // Find or create conversation
   const convResult = await findOrCreateConversation(

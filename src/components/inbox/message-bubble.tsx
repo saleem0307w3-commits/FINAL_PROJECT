@@ -265,8 +265,8 @@ export function MessageBubble({
         className={cn(
           "relative rounded-2xl px-3 py-2",
           isAgent
-            ? "rounded-br-md bg-primary text-primary-foreground"
-            : "rounded-bl-md bg-muted text-foreground",
+            ? "rounded-br-md bg-chat-out text-chat-out-foreground"
+            : "rounded-bl-md bg-chat-in text-chat-in-foreground",
         )}
       >
         {reply && (
@@ -308,7 +308,7 @@ export function MessageBubble({
               // timestamp must read against that (not the neutral
               // foreground) — otherwise it goes low-contrast in light
               // mode. Inbound bubbles use the muted surface.
-              isAgent ? "text-primary-foreground/70" : "text-muted-foreground",
+              isAgent ? "text-chat-out-foreground/70" : "text-muted-foreground",
             )}
           >
             {time}

@@ -67,14 +67,14 @@ export default function FlowEditorPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
   if (notFound || !flow) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background">
         <p className="text-sm text-muted-foreground">{t("notFound")}</p>
         <button
           type="button"

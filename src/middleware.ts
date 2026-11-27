@@ -15,10 +15,13 @@ export async function middleware(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let user: any = null
 
-  if (hasAuthCookie) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (hasAuthCookie && supabaseUrl && supabaseAnonKey) {
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      supabaseUrl,
+      supabaseAnonKey,
       {
         cookies: {
           getAll() {
@@ -48,6 +51,10 @@ export async function middleware(request: NextRequest) {
       console.error('[middleware] auth.getUser failed; treating as signed out:', err)
       user = null
     }
+  } else if (hasAuthCookie) {
+    console.warn(
+      '[middleware] Supabase URL or anon key is missing; treating caller as signed out',
+    )
   }
 
   // getUser() transparently refreshes an expired access token, which
